@@ -1,16 +1,14 @@
 import React, { useState, useRef } from "react";
 
 function UploadImage() {
-  // จัดเก็บ State เป็น Array ของ Object { file, preview } เพื่อง่ายต่อการลบ/เพิ่ม
   const [selectedImages, setSelectedImages] = useState([]);
   const [results, setResults] = useState([]);
   const [showPopup, setShowPopup] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState(null);
 
-  // ใช้ useRef เพื่ออ้างอิงถึง input file ที่ถูกซ่อนไว้
   const fileInputRef = useRef(null);
 
-  // ฟังก์ชันเพิ่มรูปภาพ (ต่อท้ายรูปเดิม)
   const handleFileChange = (event) => {
     const files = Array.from(event.target.files);
     if (files.length === 0) return;
@@ -21,23 +19,19 @@ function UploadImage() {
     }));
 
     setSelectedImages((prev) => [...prev, ...newImages]);
-    
-    // เคลียร์ค่า input เพื่อให้สามารถเลือกไฟล์ชื่อเดิมซ้ำได้ (กรณีเผลอลบแล้วอยากเลือกใหม่)
     event.target.value = null; 
   };
 
-  // ฟังก์ชันลบรูปภาพที่ไม่อยากได้ออก
   const removeImage = (indexToRemove, event) => {
-    event.stopPropagation(); // ป้องกันไม่ให้การคลิกปุ่มลบ ทะลุไปเปิดหน้าต่างเลือกไฟล์
+    event.stopPropagation();
     setSelectedImages((prev) => {
       const updatedImages = [...prev];
-      URL.revokeObjectURL(updatedImages[indexToRemove].preview); // คืนค่าหน่วยความจำ
+      URL.revokeObjectURL(updatedImages[indexToRemove].preview);
       updatedImages.splice(indexToRemove, 1);
       return updatedImages;
     });
   };
 
-  // ฟังก์ชันส่งภาพไปประมวลผล
   const handleUpload = async () => {
     if (selectedImages.length === 0) {
       setShowPopup(true);
@@ -63,7 +57,8 @@ function UploadImage() {
             fileName: item.file.name, 
             previewUrl: item.preview,
             result: data.result, 
-            percentages: data.percentages 
+            percentages: data.percentages,
+            heatmapImage: data.heatmap_image 
           };
         } else {
           throw new Error(`Error uploading ${item.file.name}`);
@@ -81,10 +76,10 @@ function UploadImage() {
   };
 
   const refreshPage = () => {
-    // แทนที่จะรีเฟรชหน้าเว็บ ให้เคลียร์แค่ State เพื่อความรวดเร็ว
     setSelectedImages([]);
     setResults([]);
     setShowPopup(false);
+    setFullscreenImage(null);
   };
 
   return (
@@ -97,7 +92,6 @@ function UploadImage() {
           เพิ่มภาพได้เรื่อยๆ และสามารถกดรูปถังขยะเพื่อลบภาพที่ไม่ต้องการก่อนวิเคราะห์ได้
         </p>
 
-        {/* ซ่อน Input File ของจริงไว้ */}
         <input
           type="file"
           multiple
@@ -107,18 +101,15 @@ function UploadImage() {
           accept="image/*"
         />
 
-        {/* โซนแสดงผลและอัปโหลด */}
         <div className={`mb-8 border-2 border-dashed border-gray-500 transition-all duration-300 rounded-2xl bg-gray-900/50 ${selectedImages.length > 0 ? 'p-4' : 'hover:border-blue-400 hover:bg-blue-900/20 cursor-pointer p-8 flex flex-col items-center justify-center min-h-[250px]'}`}
-             onClick={() => selectedImages.length === 0 && fileInputRef.current.click()} // ให้กดได้ทั้งกล่องเฉพาะตอนไม่มีรูป
+             onClick={() => selectedImages.length === 0 && fileInputRef.current.click()}
         >
           {selectedImages.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-              {/* แสดงรูปภาพที่ถูกเลือก */}
               {selectedImages.map((img, index) => (
                 <div key={index} className="relative aspect-square bg-gray-800 rounded-lg border border-gray-600 overflow-hidden shadow-sm group/item">
                   <img src={img.preview} alt={`Preview ${index}`} className="w-full h-full object-cover opacity-90 group-hover/item:opacity-50 transition-opacity" />
                   
-                  {/* ปุ่มลบ (จะโผล่มาตอนเอาเมาส์ชี้) */}
                   <button
                     onClick={(e) => removeImage(index, e)}
                     className="absolute inset-0 m-auto w-10 h-10 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center opacity-0 group-hover/item:opacity-100 transition-opacity z-10 shadow-lg transform hover:scale-110"
@@ -129,7 +120,6 @@ function UploadImage() {
                 </div>
               ))}
 
-              {/* ปุ่มสี่เหลี่ยมสำหรับ "เพิ่มรูป" ใน Grid */}
               <div
                 onClick={() => fileInputRef.current.click()}
                 className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-500 hover:border-blue-400 hover:bg-blue-900/30 rounded-lg cursor-pointer transition-all text-gray-400 hover:text-blue-400 bg-gray-800/30"
@@ -139,7 +129,6 @@ function UploadImage() {
               </div>
             </div>
           ) : (
-            // โซนตอนที่ยังไม่มีรูปเลย
             <>
               <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
               <p className="text-gray-300 font-medium text-lg">คลิก หรือ ลากไฟล์ภาพมาวางที่นี่</p>
@@ -151,7 +140,6 @@ function UploadImage() {
            <p className="text-sm text-blue-400 mb-6 text-right font-medium">ภาพที่เตรียมประมวลผล: {selectedImages.length} ไฟล์</p>
         )}
 
-        {/* ปุ่มอัปโหลด */}
         <button
           onClick={handleUpload}
           disabled={isLoading || selectedImages.length === 0}
@@ -165,10 +153,9 @@ function UploadImage() {
         </button>
       </div>
 
-      {/* Popup ผลลัพธ์ (รองรับหลายรูปเหมือนเดิม) */}
       {showPopup && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-50 px-4 py-10">
-          <div className="bg-gray-900 border border-gray-700 p-6 md:p-8 rounded-3xl shadow-2xl max-w-2xl w-full flex flex-col max-h-full">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm z-40 px-4 py-10">
+          <div className="bg-gray-900 border border-gray-700 p-6 md:p-8 rounded-3xl shadow-2xl max-w-3xl w-full flex flex-col max-h-full">
             
             <h2 className="text-2xl text-blue-400 font-bold mb-6 text-center border-b border-gray-700 pb-4">
               สรุปผลการจำแนกภาพ ({results.length} ภาพ)
@@ -178,11 +165,31 @@ function UploadImage() {
               {results.length > 0 ? (
                 results.map((res, idx) => (
                   <div key={idx} className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700 flex flex-col md:flex-row gap-6 items-center">
-                    <img 
-                      src={res.previewUrl} 
-                      alt="Result Preview" 
-                      className="w-32 h-32 object-contain bg-gray-900 rounded-xl border border-gray-600 p-1"
-                    />
+                    
+                    <div className="flex gap-2">
+                      <div className="flex flex-col items-center">
+                        <span className="text-xs text-gray-400 mb-1">ภาพต้นฉบับ</span>
+                        <img 
+                          src={res.previewUrl} 
+                          alt="Original" 
+                          onClick={() => setFullscreenImage(res.previewUrl)} // เพิ่ม Event ขยายภาพ
+                          className="w-24 h-24 md:w-28 md:h-28 object-contain bg-gray-900 rounded-xl border border-gray-600 p-1 cursor-pointer hover:scale-105 hover:border-gray-400 transition-all duration-200"
+                        />
+                      </div>
+                      
+                      {res.heatmapImage && (
+                        <div className="flex flex-col items-center">
+                          <span className="text-xs text-blue-400 mb-1">จุดที่ AI โฟกัส</span>
+                          <img 
+                            src={res.heatmapImage} 
+                            alt="Heatmap" 
+                            onClick={() => setFullscreenImage(res.heatmapImage)} // เพิ่ม Event ขยายภาพ
+                            className="w-24 h-24 md:w-28 md:h-28 object-contain bg-gray-900 rounded-xl border border-blue-500/50 shadow-[0_0_10px_rgba(59,130,246,0.3)] p-1 cursor-pointer hover:scale-105 hover:border-blue-400 transition-all duration-200"
+                          />
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex-1 w-full text-left">
                       <p className="text-sm text-gray-400 truncate w-48 md:w-full mb-1" title={res.fileName}>
                         ไฟล์: {res.fileName}
@@ -219,6 +226,32 @@ function UploadImage() {
             >
               ทำรายการใหม่
             </button>
+          </div>
+        </div>
+      )}
+
+      {fullscreenImage && (
+        <div 
+          className="fixed inset-0 flex items-center justify-center bg-black/95 z-50 p-4 cursor-pointer backdrop-blur-md transition-opacity"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <div className="relative flex flex-col items-center justify-center max-w-full max-h-full">
+            <button 
+              className="absolute -top-12 right-0 text-gray-400 hover:text-white p-2 transition-colors z-50"
+              onClick={(e) => {
+                e.stopPropagation();
+                setFullscreenImage(null);
+              }}
+            >
+              <svg className="w-8 h-8 md:w-10 md:h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            
+            <img 
+              src={fullscreenImage} 
+              alt="Fullscreen View" 
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}
